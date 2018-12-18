@@ -101,3 +101,5 @@ nine = {
         '-|4|7,8|8,8'
     ]
 }
+
+all = [two, six, eight, nine]
