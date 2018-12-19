@@ -1,5 +1,6 @@
 
-import itertools, csp, kenken_problems
+import itertools
+import csp
 
 # variables are
 #
@@ -7,7 +8,7 @@ import itertools, csp, kenken_problems
 
 #####################################################################
 
-class Kenken(csp.CSP):
+class KENKEN(csp.CSP):
     def __init__(self, puzzle):
         self.size = puzzle['size']
 
@@ -24,7 +25,7 @@ class Kenken(csp.CSP):
             res = eachvar['result']
             action = eachvar['action']
             all_to_try = list(itertools.product(range(1, N+1), repeat=len(cells)))
-            
+
             self.variables.append(varname)
             self.domains[varname] = []
 
@@ -71,17 +72,12 @@ class Kenken(csp.CSP):
                 neighbors.remove(varname)
             except:
                 pass
-            
-            self.neighbors[varname] = list(neighbors)
-            # print(varname, self.neighbors[varname])
 
-        # print('Variables:', self.variables)
-        # print('Domains:', self.domains)
-        # print('Neighbors:', self.neighbors)
+            self.neighbors[varname] = list(neighbors)
 
         super().__init__(self.variables, self.domains, self.neighbors, self.checkok)
 
-    def display(self, ass):
+    def print(self, ass):
         N = self.size
 
         grid = {}
@@ -122,7 +118,6 @@ class Kenken(csp.CSP):
     def cell_to_xy(self, cell, N):
         return (int(cell) // N), (int(cell) % N)
 
-
     def possible(self, variable, values, N):
         # rows[x] will contain the values from row @x
         rows = { }
@@ -149,13 +144,3 @@ class Kenken(csp.CSP):
                 cols[col].add(val)
 
         return True
-
-
-import problems.six, problems.hard, problems.nine
-
-if __name__ == '__main__':
-    k = Kenken(problems.six.problem)
-
-    # print(kenken_problems.__dict__.keys())
-    csp.AC3(k)
-    k.display(csp.backtracking_search(k))
