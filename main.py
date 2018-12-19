@@ -24,4 +24,4 @@ if ass is None:
     print('rip')
 else:
     puzzle.print(ass)
-    print(puzzle.nassigns)
+    # print(puzzle.nassigns)
