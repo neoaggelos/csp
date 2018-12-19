@@ -11,11 +11,11 @@ puzzle = KENKEN(problem)
 ### AC3 (optional)
 # AC3(puzzle)
 
-ass = backtracking_search(puzzle) ### BT
+# ass = backtracking_search(puzzle) ### BT
 # ass = backtracking_search(puzzle, select_unassigned_variable=mrv) ### BT_MRV
 # ass = backtracking_search(puzzle, inference=forward_checking) ### FC
 # ass = backtracking_search(puzzle, select_unassigned_variable=mrv, inference=forward_checking) ### FC_MRV
-# ass = backtracking_search(puzzle, inference=mac) ### MAC
+ass = backtracking_search(puzzle, inference=mac) ### MAC
 
 #####################################################
 
