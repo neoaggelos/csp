@@ -1,126 +1,164 @@
 
-import itertools
+import itertools, csp, kenken_problems
 
-from csp import backtracking_search, min_conflicts, mrv, AC3, forward_checking, mac, CSP
-import kenken_problems
+# variables are
+#
+# '(x1*N + y1)_(x2*N + y2)_(...)_(xN * N + yN)'
 
-# var format is '<func>|<result>|<x1,y1>|<x2,y2>|...|<xN,yN>'
+def product_of_all(l):
+    p = 1
+    for x in l:
+        p *= x
 
-def mult(iter):
-    res = 1
-    for x in iter:
-        res *= x
+    return p
 
-    return res
+def list_of_cells(var):
+    return var.split('_')
 
-def varstring_to_xy(varstring):
-    for cell in varstring.split('|')[2:]:
-        c = cell.split(',')
-        yield (int(c[0]), int(c[1]))
+def cell_to_xy(cell, N):
+    return (int(cell) // N), (int(cell) % N)
 
 
-def legal(var, values, N):
-    # check if vars can have values of values
-    rowvals = [[] for x in range(N)]
-    colvals = [[] for x in range(N)]
+#####################################################################
 
-    for (x, y), value in zip(varstring_to_xy(var), values):
-        if value in rowvals[x] or value in colvals[y]:
-            return False
 
-        rowvals[x].append(value)
-        colvals[y].append(value)
+def possible(variable, values, N):
+    # rows[x] will contain the values from row @x
+    rows = { }
+    # cols[y] will contain the values from column @y
+    cols = { }
+
+    for cell, val in zip(list_of_cells(variable), values):
+        row, col = cell_to_xy(cell, N)
+
+        try:
+            if val in rows[row]:
+                return False
+        except KeyError:
+            rows[row] = set()
+        finally:
+            rows[row].add(val)
+
+        try:
+            if val in cols[col]:
+                return False
+        except KeyError:
+            cols[col] = set()
+        finally:
+            cols[col].add(val)
 
     return True
 
-class Kenken(CSP):
-    def __init__(self, problem):
-        self.problem = problem
-        N = self.problem['N']
+class Kenken(csp.CSP):
+    def __init__(self, puzzle):
+        self.size = puzzle['size']
 
-        # vars that have cells in row[i]
-        inrow = [[] for x in range(N)]
-        incol = [[] for x in range(N)]
+        N = self.size
 
-        # vars
-        self.variables = problem['sextes']
+        self.vars_with_row = {}
+        self.vars_with_col = {}
+
+        self.variables = []
         self.domains = {}
-        for v in self.variables:
-            parts = v.split('|')
-            func = parts[0]
-            target = int(parts[1])
-            n_elements = len(parts) - 2 # without func and result
+        for eachvar in puzzle['vars']:
+            varname = eachvar['cells']
+            cells = list_of_cells(varname)
+            res = eachvar['result']
+            action = eachvar['action']
+            all_to_try = list(itertools.product(range(1, N+1), repeat=len(cells)))
+            
+            self.variables.append(varname)
+            self.domains[varname] = []
 
-            if func in '-/' and (n_elements != 2 or target < 0 or target > N):
-                raise ValueError("come on man")
+            if action == 'sum':
+                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and sum(d) == res]
+            elif action == 'mul':
+                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and product_of_all(d) == res]
+            elif action == 'div':
+                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and max(d) / min(d) == res]
+            elif action == 'sub':
+                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and max(d) - min(d) == res]
 
-            # domains -- only the ones that give correct target result
-            # a domain is a tuple -> (value of x1y1, value of x2y2, ..., value of xNyN)
-            all_domains = list(itertools.product(range(1, N+1), repeat=n_elements))
-            if func == '+':
-                self.domains[v] = [d for d in all_domains if legal(v, d, N) and sum(d) == target]
-            elif func == '*':
-                self.domains[v] = [d for d in all_domains if legal(v, d, N) and mult(d) == target]
-            elif func == '-':
-                self.domains[v] = [d for d in all_domains if legal(v, d, N) and abs(d[0] - d[1]) == target]
-            elif func == '/':
-                self.domains[v] = [d for d in all_domains if legal(v, d, N) and ((d[0] / d[1] == target) or (d[1] / d[0] == target))]
+            for cell in cells:
+                row, col = cell_to_xy(cell, N)
 
-            # rows and columns of this sexta, used for neighbors below
-            for x, y in varstring_to_xy(v):
-                inrow[x].append(v)
-                incol[y].append(v)
+                try:
+                    self.vars_with_row[row].add(varname)
+                except KeyError:
+                    self.vars_with_row[row] = set()
+                    self.vars_with_row[row].add(varname)
 
-        # neighbors -- only the ones are the ones with elements in the same row
+                try:
+                    self.vars_with_col[col].add(varname)
+                except KeyError:
+                    self.vars_with_col[col] = set()
+                    self.vars_with_col[col].add(varname)
+
+        # for i, items in self.vars_with_col.items():
+            # print(i, items)
+
         self.neighbors = {}
-        for v in self.variables:
+        for var in puzzle['vars']:
+            varname = var['cells']
+
             neighbors = set()
 
-            for x, y in varstring_to_xy(v):
-                for n in inrow[x]:
-                    neighbors.add(n)
+            for cell in list_of_cells(varname):
+                row, col = cell_to_xy(cell, N)
 
-                for n in incol[y]:
-                    neighbors.add(n)
+                for x in self.vars_with_col[col]:
+                    neighbors.add(x)
 
-            neighbors.remove(v)
-            self.neighbors[v] = list(neighbors)
+                for y in self.vars_with_row[row]:
+                    neighbors.add(y)
+
+            try:
+                neighbors.remove(varname)
+            except:
+                pass
+            
+            self.neighbors[varname] = list(neighbors)
+            print(varname, self.neighbors[varname])
 
         # print('Variables:', self.variables)
         # print('Domains:', self.domains)
         # print('Neighbors:', self.neighbors)
 
-        CSP.__init__(self, self.variables, self.domains, self.neighbors, self.constraints_func)
+        super().__init__(self.variables, self.domains, self.neighbors, self.checkok)
 
-    def constraints_func(self, A, value_a, B, value_b):
-        vars_A = A.split('|')[2:]
-        vars_B = B.split('|')[2:]
+    def display(self, ass):
+        N = self.size
 
-        # create a single var for them all
-        allvars = 'x|x|' + '|'.join(vars_A + vars_B)
-        allvals = (*value_a,*value_b)
+        grid = {}
 
-        return legal(allvars, allvals, self.problem['N'])
+        for var in ass:
+            values = ass[var]
+            for cell, value in zip(list_of_cells(var), values):
+                row, col = cell_to_xy(cell, N)
 
-    def display(self, assignment):
-        N = self.problem['N']
+                grid[str(row)+'-'+str(col)] = str(value)
 
-        grid = [[0 for _ in range(N)] for __ in range(N)]   # NxN zeros
-        for var, values in assignment.items():
-            for (x, y), val in zip(varstring_to_xy(var), values):
-                grid[x][y] = val
-
+        print('-' + '+-' * (N-1))
         for x in range(N):
-            for y in range(N):
-                print(grid[x][y], end=' ')
-            print()
-        
-        print('\nNeeded', self.nassigns,'assigns')
+            print('|'.join([grid[str(x) + '-' + str(y)] for y in range(N)]))
+            print('-' + '+-' * (N-1))
 
+    def checkok(self, A, a, B, b):
+        # concatanate into a single list, to use the already defined 'possible' method
+        all_cells = A + '_' + B
+        all_values = []
+        for v in a:
+            all_values.append(v)
+        for v in b:
+            all_values.append(v)
+
+        return possible(all_cells, all_values, self.size)
+
+import problems.six, problems.hard, problems.nine
 
 if __name__ == '__main__':
-    k = Kenken(getattr(kenken_problems, 'six'))
+    k = Kenken(problems.nine.problem)
 
     # print(kenken_problems.__dict__.keys())
-    AC3(k)
-    k.display(min_conflicts(k))
+    # csp.AC3(k)
+    k.display(csp.backtracking_search(k))
