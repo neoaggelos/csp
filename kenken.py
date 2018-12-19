@@ -3,51 +3,9 @@ import itertools, csp, kenken_problems
 
 # variables are
 #
-# '(x1*N + y1)_(x2*N + y2)_(...)_(xN * N + yN)'
-
-def product_of_all(l):
-    p = 1
-    for x in l:
-        p *= x
-
-    return p
-
-def list_of_cells(var):
-    return var.split('_')
-
-def cell_to_xy(cell, N):
-    return (int(cell) // N), (int(cell) % N)
-
+# '(x_1*N + y_1)_(x_2*N + y_2)_(...)_(x_N * N + y_N)'
 
 #####################################################################
-
-
-def possible(variable, values, N):
-    # rows[x] will contain the values from row @x
-    rows = { }
-    # cols[y] will contain the values from column @y
-    cols = { }
-
-    for cell, val in zip(list_of_cells(variable), values):
-        row, col = cell_to_xy(cell, N)
-
-        try:
-            if val in rows[row]:
-                return False
-        except KeyError:
-            rows[row] = set()
-        finally:
-            rows[row].add(val)
-
-        try:
-            if val in cols[col]:
-                return False
-        except KeyError:
-            cols[col] = set()
-        finally:
-            cols[col].add(val)
-
-    return True
 
 class Kenken(csp.CSP):
     def __init__(self, puzzle):
@@ -62,7 +20,7 @@ class Kenken(csp.CSP):
         self.domains = {}
         for eachvar in puzzle['vars']:
             varname = eachvar['cells']
-            cells = list_of_cells(varname)
+            cells = self.list_of_cells(varname)
             res = eachvar['result']
             action = eachvar['action']
             all_to_try = list(itertools.product(range(1, N+1), repeat=len(cells)))
@@ -71,16 +29,16 @@ class Kenken(csp.CSP):
             self.domains[varname] = []
 
             if action == 'sum':
-                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and sum(d) == res]
+                self.domains[varname] = list(filter(lambda d : self.possible(varname, d, N) and sum(d) == res, all_to_try))
             elif action == 'mul':
-                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and product_of_all(d) == res]
+                self.domains[varname] = list(filter(lambda d : self.possible(varname, d, N) and self.product_of_all(d) == res, all_to_try))
             elif action == 'div':
-                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and max(d) / min(d) == res]
+                self.domains[varname] = list(filter(lambda d : self.possible(varname, d, N) and max(d) / min(d) == res, all_to_try))
             elif action == 'sub':
-                self.domains[varname] = [d for d in all_to_try if possible(varname, d, N) and max(d) - min(d) == res]
+                self.domains[varname] = list(filter(lambda d : self.possible(varname, d, N) and max(d) - min(d) == res, all_to_try))
 
             for cell in cells:
-                row, col = cell_to_xy(cell, N)
+                row, col = self.cell_to_xy(cell, N)
 
                 try:
                     self.vars_with_row[row].add(varname)
@@ -94,17 +52,14 @@ class Kenken(csp.CSP):
                     self.vars_with_col[col] = set()
                     self.vars_with_col[col].add(varname)
 
-        # for i, items in self.vars_with_col.items():
-            # print(i, items)
-
         self.neighbors = {}
         for var in puzzle['vars']:
             varname = var['cells']
 
             neighbors = set()
 
-            for cell in list_of_cells(varname):
-                row, col = cell_to_xy(cell, N)
+            for cell in self.list_of_cells(varname):
+                row, col = self.cell_to_xy(cell, N)
 
                 for x in self.vars_with_col[col]:
                     neighbors.add(x)
@@ -118,7 +73,7 @@ class Kenken(csp.CSP):
                 pass
             
             self.neighbors[varname] = list(neighbors)
-            print(varname, self.neighbors[varname])
+            # print(varname, self.neighbors[varname])
 
         # print('Variables:', self.variables)
         # print('Domains:', self.domains)
@@ -133,8 +88,8 @@ class Kenken(csp.CSP):
 
         for var in ass:
             values = ass[var]
-            for cell, value in zip(list_of_cells(var), values):
-                row, col = cell_to_xy(cell, N)
+            for cell, value in zip(self.list_of_cells(var), values):
+                row, col = self.cell_to_xy(cell, N)
 
                 grid[str(row)+'-'+str(col)] = str(value)
 
@@ -152,13 +107,55 @@ class Kenken(csp.CSP):
         for v in b:
             all_values.append(v)
 
-        return possible(all_cells, all_values, self.size)
+        return self.possible(all_cells, all_values, self.size)
+
+    def product_of_all(self, l):
+        p = 1
+        for x in l:
+            p *= x
+
+        return p
+
+    def list_of_cells(self, var):
+        return var.split('_')
+
+    def cell_to_xy(self, cell, N):
+        return (int(cell) // N), (int(cell) % N)
+
+
+    def possible(self, variable, values, N):
+        # rows[x] will contain the values from row @x
+        rows = { }
+        # cols[y] will contain the values from column @y
+        cols = { }
+
+        for cell, val in zip(self.list_of_cells(variable), values):
+            row, col = self.cell_to_xy(cell, N)
+
+            try:
+                if val in rows[row]:
+                    return False
+            except KeyError:
+                rows[row] = set()
+            finally:
+                rows[row].add(val)
+
+            try:
+                if val in cols[col]:
+                    return False
+            except KeyError:
+                cols[col] = set()
+            finally:
+                cols[col].add(val)
+
+        return True
+
 
 import problems.six, problems.hard, problems.nine
 
 if __name__ == '__main__':
-    k = Kenken(problems.nine.problem)
+    k = Kenken(problems.six.problem)
 
     # print(kenken_problems.__dict__.keys())
-    # csp.AC3(k)
+    csp.AC3(k)
     k.display(csp.backtracking_search(k))
